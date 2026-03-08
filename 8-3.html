@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>8/3 - Vũ Trụ Của Nàng</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #010103;
+            color: white;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Thứ tự các lớp layer */
+        #starCanvas { z-index: 1; position: fixed; }
+        #tulipCanvas { z-index: 5; position: fixed; }
+        #fireworksCanvas { z-index: 20; position: fixed; pointer-events: none; }
+        .content { z-index: 100; position: relative; pointer-events: none; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+
+        /* Chữ Nebula */
+        h1 {
+            font-size: clamp(2.5rem, 9vw, 7rem);
+            font-weight: 900;
+            text-align: center;
+            color: transparent;
+            background: linear-gradient(135deg, #f472b6, #fff, #8b5cf6, #3b82f6, #fff);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: nebulaMove 6s ease infinite;
+            filter: drop-shadow(0 0 15px rgba(139, 92, 246, 0.6));
+            line-height: 1.1;
+            margin-bottom: 20px;
+        }
+
+        .subtitle-container { height: 3rem; display: flex; justify-content: center; align-items: center; }
+        .subtitle {
+            font-size: clamp(1.2rem, 3vw, 2.2rem);
+            color: #ddd6fe;
+            text-shadow: 0 0 15px rgba(139, 92, 246, 0.9);
+            font-style: italic;
+            opacity: 0;
+            transition: all 1s ease-in-out;
+        }
+        .subtitle.active { opacity: 1; transform: translateY(0); }
+
+        @keyframes nebulaMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* NÚT BẤM HIỆU ỨNG MỚI */
+        #overlay {
+            position: fixed; inset: 0; background: radial-gradient(circle, #0a0a2e 0%, #000 100%);
+            z-index: 1000; display: flex; justify-content: center; align-items: center;
+            transition: opacity 1.5s ease;
+        }
+        .start-btn {
+            padding: 25px 50px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: transparent;
+            color: #fff;
+            border: 2px solid #f472b6;
+            border-radius: 60px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: 0.4s;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            box-shadow: 0 0 20px rgba(244, 114, 182, 0.4), inset 0 0 10px rgba(244, 114, 182, 0.2);
+            animation: pulseBtn 2s infinite;
+        }
+        .start-btn:hover {
+            background: #f472b6;
+            box-shadow: 0 0 50px #f472b6;
+            transform: scale(1.1);
+        }
+        @keyframes pulseBtn {
+            0% { transform: scale(1); box-shadow: 0 0 20px #f472b6; }
+            50% { transform: scale(1.05); box-shadow: 0 0 40px #8b5cf6; }
+            100% { transform: scale(1); box-shadow: 0 0 20px #f472b6; }
+        }
+
+        canvas { position: absolute; inset: 0; display: block; background: transparent; }
+    </style>
+</head>
+<body>
+
+<div id="overlay">
+    <button class="start-btn" onclick="startApp()">NHẬN QUÀ 8/3 ✨</button>
+</div>
+
+<canvas id="starCanvas"></canvas>
+<canvas id="tulipCanvas"></canvas>
+<canvas id="fireworksCanvas"></canvas>
+
+<div class="content">
+    <h1>CHÚC MỪNG 8/3</h1>
+    <div class="subtitle-container">
+        <div class="subtitle" id="wishText">Vũ trụ cũng phải nở hoa vì em...</div>
+    </div>
+</div>
+
+<audio id="bgMusic" loop>
+    <source src="Music.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+    const starCanvas = document.getElementById('starCanvas');
+    const tulipCanvas = document.getElementById('tulipCanvas');
+    const fwCanvas = document.getElementById('fireworksCanvas');
+    
+    const sCtx = starCanvas.getContext('2d');
+    const tCtx = tulipCanvas.getContext('2d');
+    const fCtx = fwCanvas.getContext('2d');
+
+    let width, height, stars = [], particles = [];
+    let bloomProgress = 0, isStarted = false, rotationAngle = 0;
+
+    const messages = [
+        "Đóa hoa Tulip đẹp nhất dành cho em",
+        "Chúc em luôn rạng rỡ như dải ngân hà!",
+        "Hạnh phúc và xinh đẹp mãi mãi ♥",
+        "Em là phép màu tuyệt vời nhất thế gian",
+        "Chúc em luôn rạng rỡ như dải ngân hà!",
+        "Hạnh phúc và xinh đẹp mãi như đóa Tulip này ♥",
+        "Mỗi ngày bên em đều là một phép màu",
+        "Em là đóa hoa vĩnh cửu trong lòng anh ✨"
+    ];
+    let msgIndex = 0;
+
+    function init() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        [starCanvas, tulipCanvas, fwCanvas].forEach(c => {
+            c.width = width;
+            c.height = height;
+        });
+        stars = Array.from({length: 200}, () => ({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            size: Math.random() * 2,
+            opacity: Math.random(),
+            speed: 0.01 + Math.random() * 0.02
+        }));
+    }
+
+    // --- HỆ THỐNG ÂM THANH PHÁO HOA ---
+    let audioCtx;
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+
+    function playBoom() {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(60 + Math.random() * 40, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+    }
+
+    function drawStars() {
+        sCtx.clearRect(0, 0, width, height);
+        stars.forEach(s => {
+            s.opacity += s.speed;
+            if(s.opacity > 1 || s.opacity < 0) s.speed = -s.speed;
+            sCtx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, s.opacity)})`;
+            sCtx.beginPath();
+            sCtx.arc(s.x, s.y, s.size, 0, Math.PI*2);
+            sCtx.fill();
+        });
+    }
+
+    function drawTulip() {
+        if(!isStarted) return;
+        tCtx.clearRect(0,0,width,height);
+        const cx = width/2, cy = height/2;
+        const baseScale = Math.min(width, height) * 0.0042;
+        const pulse = bloomProgress >= 1 ? Math.sin(Date.now() * 0.002) * 0.04 : 0;
+        const currentScale = (baseScale + pulse) * bloomProgress;
+
+        tCtx.save();
+        tCtx.translate(cx, cy);
+        if (bloomProgress >= 1) rotationAngle += 0.006;
+        tCtx.rotate(rotationAngle);
+
+        for(let layer = 0; layer < 3; layer++) {
+            const petals = 6;
+            const layerScale = (1 - layer * 0.25) * bloomProgress;
+            for(let i = 0; i < petals; i++) {
+                tCtx.save();
+                tCtx.rotate((i * 60 + layer * 30) * Math.PI / 180);
+                const pLen = 190 * currentScale * layerScale;
+                const pWid = 90 * currentScale * layerScale;
+                let grad = tCtx.createLinearGradient(0, 0, 0, -pLen);
+                grad.addColorStop(0, '#2d0505');
+                grad.addColorStop(0.5, '#be123c');
+                grad.addColorStop(1, '#ff758f');
+                tCtx.beginPath();
+                tCtx.moveTo(0, 0);
+                tCtx.bezierCurveTo(-pWid * 1.3, -pLen * 0.35, -pWid * 0.9, -pLen * 1.15, 0, -pLen);
+                tCtx.bezierCurveTo(pWid * 0.9, -pLen * 1.15, pWid * 1.3, -pLen * 0.35, 0, 0);
+                tCtx.fillStyle = grad;
+                tCtx.shadowBlur = 35 * bloomProgress;
+                tCtx.shadowColor = "#e11d48";
+                tCtx.fill();
+                tCtx.restore();
+            }
+        }
+        tCtx.restore();
+        if(bloomProgress < 1) bloomProgress += 0.0035;
+    }
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y; this.color = color;
+            const angle = Math.random() * Math.PI * 2;
+            const force = Math.random() * 9 + 4;
+            this.vx = Math.cos(angle) * force;
+            this.vy = Math.sin(angle) * force;
+            this.alpha = 1;
+            this.gravity = 0.07;
+            this.friction = 0.95;
+            this.history = [];
+        }
+        update() {
+            this.history.push({x: this.x, y: this.y});
+            if(this.history.length > 20) this.history.shift();
+            this.vx *= this.friction;
+            this.vy *= this.friction;
+            this.vy += this.gravity;
+            this.x += this.vx; this.y += this.vy;
+            this.alpha -= 0.007;
+        }
+        draw() {
+            if(this.alpha <= 0 || this.history.length < 2) return;
+            fCtx.beginPath();
+            fCtx.moveTo(this.history[0].x, this.history[0].y);
+            for(let p of this.history) fCtx.lineTo(p.x, p.y);
+            fCtx.strokeStyle = this.color;
+            fCtx.lineWidth = 1.8;
+            fCtx.globalAlpha = this.alpha;
+            fCtx.stroke();
+        }
+    }
+
+    function spawnFirework(x, y) {
+        if(isStarted) playBoom();
+        const color = `hsl(${Math.random()*360}, 100%, 75%)`;
+        for(let i=0; i<70; i++) particles.push(new Particle(x, y, color));
+    }
+
+    function rotateMessages() {
+        const wishText = document.getElementById('wishText');
+        wishText.classList.remove('active');
+        setTimeout(() => {
+            msgIndex = (msgIndex + 1) % messages.length;
+            wishText.innerText = messages[msgIndex];
+            wishText.classList.add('active');
+        }, 1000);
+    }
+
+    function animate() {
+        drawStars();
+        drawTulip();
+        fCtx.clearRect(0, 0, width, height);
+        particles.forEach((p, i) => {
+            p.update(); p.draw();
+            if(p.alpha <= 0) particles.splice(i, 1);
+        });
+        if(isStarted && Math.random() < 0.02) spawnFirework(Math.random()*width, Math.random()*height*0.5);
+        requestAnimationFrame(animate);
+    }
+
+    function startApp() {
+        isStarted = true;
+        initAudio(); // Kích hoạt AudioContext
+        const music = document.getElementById('bgMusic');
+        music.currentTime = 20;
+        music.play();
+        // document.getElementById('bgMusic').play(); // Chạy nhạc nền
+        document.getElementById('overlay').style.opacity = '0';
+        setTimeout(() => {
+            document.getElementById('overlay').remove();
+            document.getElementById('wishText').classList.add('active');
+            setInterval(rotateMessages, 5000);
+        }, 1500);
+    }
+
+    window.addEventListener('resize', init);
+    window.addEventListener('mousedown', (e) => { if(isStarted) spawnFirework(e.clientX, e.clientY); });
+    init(); animate();
+</script>
+</body>
+</html>
